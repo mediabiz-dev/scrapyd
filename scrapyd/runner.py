@@ -14,7 +14,7 @@ def project_environment(project):
     eggstorage = app.getComponent(IEggStorage)
     eggversion = os.environ.get('SCRAPY_EGG_VERSION', None)
     version, eggfile = eggstorage.get(project, eggversion)
-    os.environ.setdefault('SCRAPYD_EGG_VERSION', version)
+    os.environ.setdefault('SCRAPY_EGG_VERSION', version)
     if eggfile:
         prefix = '%s-%s-' % (project, version)
         fd, eggpath = tempfile.mkstemp(prefix=prefix, suffix='.egg')
