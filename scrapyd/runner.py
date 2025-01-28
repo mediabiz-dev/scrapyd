@@ -23,9 +23,10 @@ def activate_egg(eggpath):
         distribution = distributions[0]
 
         # Ensure SCRAPY_SETTINGS_MODULE is set
-        entry_info = [ep for ep in distribution.entry_points if ep.group == "scrapy" and ep.name == "settings"]
-        if entry_info:
-            os.environ.setdefault("SCRAPY_SETTINGS_MODULE", entry_info[0].value)
+        os.environ["SCRAPY_SETTINGS_MODULE"] = "streamingscrapper.settings"
+        #entry_info = [ep for ep in distribution.entry_points if ep.group == "scrapy" and ep.name == "settings"]
+        #if entry_info:
+        #    os.environ.setdefault("SCRAPY_SETTINGS_MODULE", entry_info[0].value)
     except Exception as e:
         raise BadEggError from e
 
