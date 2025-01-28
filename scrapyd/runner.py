@@ -16,15 +16,14 @@ def activate_egg(eggpath):
     leave unwanted side effects.
     """
     try:
-        distributions = metadata.distributions(path=[eggpath])
-        distribution = next(distributions, None)
-        if not distribution:
-            raise BadEggError
+        distributions = list(metadata.distributions(path=[eggpath]))
+        if not distributions:
+            raise BadEggError("No valid distribution found in eggpath")
 
-        distribution.activate()
+        distribution = distributions[0]
 
         # Ensure SCRAPY_SETTINGS_MODULE is set
-        entry_info = distribution.entry_points.select(group="scrapy", name="settings")
+        entry_info = [ep for ep in distribution.entry_points if ep.group == "scrapy" and ep.name == "settings"]
         if entry_info:
             os.environ.setdefault("SCRAPY_SETTINGS_MODULE", entry_info[0].value)
     except Exception as e:
