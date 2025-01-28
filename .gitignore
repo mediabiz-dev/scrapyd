@@ -1,9 +1,27 @@
+# Build
+/*.egg-info
+/dist
 *.pyc
-_trial_temp
-docs/_build
-*egg-info
-.tox
-.coverage
+
+# Development
 venv
-dist
-build
+.vscode
+.idea
+/myproject
+
+# Docs
+/docs/_build
+
+# Tests
+/.coverage*
+/htmlcov
+/_trial_temp
+/tests.test_*
+
+# CLI
+/scrapyd.conf
+/twistd.pid
+/dbs
+/eggs
+/items
+/logs

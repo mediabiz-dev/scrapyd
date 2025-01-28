@@ -1,13 +1,12 @@
+from twisted.internet.defer import DeferredQueue, inlineCallbacks, maybeDeferred
 from zope.interface import implementer
-from six import iteritems
-from twisted.internet.defer import DeferredQueue, inlineCallbacks, maybeDeferred, returnValue
 
-from .utils import get_spider_queues
-from .interfaces import IPoller
+from scrapyd.interfaces import IPoller
+from scrapyd.utils import get_spider_queues
+
 
 @implementer(IPoller)
-class QueuePoller(object):
-
+class QueuePoller:
     def __init__(self, config):
         self.config = config
         self.update_projects()
@@ -15,23 +14,24 @@ class QueuePoller(object):
 
     @inlineCallbacks
     def poll(self):
-        if not self.dq.waiting:
-            return
-        for p, q in iteritems(self.queues):
-            c = yield maybeDeferred(q.count)
-            if c:
-                msg = yield maybeDeferred(q.pop)
-                if msg is not None:  # In case of a concurrently accessed queue
-                    returnValue(self.dq.put(self._message(msg, p)))
+        for project, queue in self.queues.items():
+            while (yield maybeDeferred(queue.count)):
+                # If the "waiting" backlog is empty (that is, if the maximum number of Scrapy processes are running):
+                if not self.dq.waiting:
+                    return
+                message = (yield maybeDeferred(queue.pop)).copy()
+                # The message can be None if, for example, two Scrapyd instances share a spider queue database.
+                if message is not None:
+                    message["_project"] = project
+                    message["_spider"] = message.pop("name")
+                    # Pop a dummy item from the "waiting" backlog. and fire the message's callbacks.
+                    self.dq.put(message)
 
     def next(self):
+        """
+        Add a dummy item to the "waiting" backlog (based on Twisted's implementation of DeferredQueue).
+        """
         return self.dq.get()
 
     def update_projects(self):
         self.queues = get_spider_queues(self.config)
-
-    def _message(self, queue_msg, project):
-        d = queue_msg.copy()
-        d['_project'] = project
-        d['_spider'] = d.pop('name')
-        return d

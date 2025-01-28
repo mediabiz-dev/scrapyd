@@ -1,0 +1,34 @@
+name: Tests
+on: [push, pull_request]
+jobs:
+  tests:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+        python-version: [3.9, "3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - run: pip install -e .[test]
+      # Python 3.12 deprecates pkg_resources (also used by py-html-checker).
+      # https://github.com/pytest-dev/pytest-twisted/issues/183
+      # https://github.com/sveetch/py-html-checker/issues/26
+      - run: |
+          pytest -W error -W ignore::ResourceWarning -W ignore::DeprecationWarning:scrapyd.runner -W ignore::DeprecationWarning:pytest_twisted -W ignore::DeprecationWarning:html_checker -W ignore::DeprecationWarning:pkg_resources tests --cov scrapyd
+      # Occasional "ConnectionRefusedError: [Errno 111] Connection refused".
+      - name: Run integration tests
+        run: |
+          printf "[scrapyd]\nusername = hello12345\npassword = 67890world\n" > scrapyd.conf
+          mkdir logs
+          scrapyd > scrapyd.log 2>&1 &
+          sleep 1
+          pytest -W error -W ignore::ResourceWarning -W ignore::DeprecationWarning:pytest_twisted integration_tests
+          cat scrapyd.log
+      - env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: coveralls --service=github

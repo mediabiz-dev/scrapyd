@@ -1,67 +1,60 @@
-import sys
+import os
 
-from scrapy.utils.misc import load_object
+from twisted.application.internet import TCPServer, TimerService, UNIXServer
 from twisted.application.service import Application
-from twisted.application.internet import TimerService, TCPServer
+from twisted.logger import Logger
 from twisted.web import server
-from twisted.python import log
-from twisted.cred.portal import Portal
-from twisted.web.guard import HTTPAuthSessionWrapper, BasicCredentialFactory
 
-from .interfaces import IEggStorage, IPoller, ISpiderScheduler, IEnvironment
-from .eggstorage import FilesystemEggStorage
-from .scheduler import SpiderScheduler
-from .poller import QueuePoller
-from .environ import Environment
-from .basicauth import PublicHTMLRealm, StringCredentialsChecker
+from scrapyd.basicauth import wrap_resource
+from scrapyd.environ import Environment
+from scrapyd.interfaces import IEggStorage, IEnvironment, IJobStorage, IPoller, ISpiderScheduler
+from scrapyd.scheduler import SpiderScheduler
+from scrapyd.utils import initialize_component
 
-
-def create_wrapped_resource(webcls, config, app):
-    username = config.get('username', '')
-    password = config.get('password', '')
-    if ':' in username:
-        sys.exit("The `username` option contains illegal character ':', "
-                 "check and update the configuration file of Scrapyd")
-    resource = webcls(config, app)
-    if username and password:
-        log.msg("Basic authentication enabled")
-        portal = Portal(PublicHTMLRealm(resource),
-                        [StringCredentialsChecker(username, password)])
-        credential_factory = BasicCredentialFactory("Auth")
-        return HTTPAuthSessionWrapper(portal, [credential_factory])
-    else:
-        log.msg("Basic authentication disabled as either `username` or `password` is unset")
-        return resource
+log = Logger()
 
 
 def application(config):
     app = Application("Scrapyd")
-    http_port = config.getint('http_port', 6800)
-    bind_address = config.get('bind_address', '127.0.0.1')
-    poll_interval = config.getfloat('poll_interval', 5)
+    bind_address = os.getenv("SCRAPYD_BIND_ADDRESS") or config.get("bind_address", "127.0.0.1")
+    http_port = int(os.getenv("SCRAPYD_HTTP_PORT") or config.getint("http_port", "6800"))
+    unix_socket_path = os.getenv("SCRAPYD_UNIX_SOCKET_PATH") or config.get("unix_socket_path", "")
+    poll_interval = config.getfloat("poll_interval", 5)
 
-    poller = QueuePoller(config)
-    eggstorage = FilesystemEggStorage(config)
-    scheduler = SpiderScheduler(config)
     environment = Environment(config)
+    scheduler = SpiderScheduler(config)
+    poller = initialize_component(config, "poller", "scrapyd.poller.QueuePoller")
+    jobstorage = initialize_component(config, "jobstorage", "scrapyd.jobstorage.MemoryJobStorage")
+    eggstorage = initialize_component(config, "eggstorage", "scrapyd.eggstorage.FilesystemEggStorage")
 
-    app.setComponent(IPoller, poller)
-    app.setComponent(IEggStorage, eggstorage)
-    app.setComponent(ISpiderScheduler, scheduler)
     app.setComponent(IEnvironment, environment)
+    app.setComponent(ISpiderScheduler, scheduler)
+    app.setComponent(IPoller, poller)
+    app.setComponent(IJobStorage, jobstorage)
+    app.setComponent(IEggStorage, eggstorage)
 
-    laupath = config.get('launcher', 'scrapyd.launcher.Launcher')
-    laucls = load_object(laupath)
-    launcher = laucls(config, app)
+    # launcher uses jobstorage in initializer, and uses poller and environment.
+    launcher = initialize_component(config, "launcher", "scrapyd.launcher.Launcher", app)
 
     timer = TimerService(poll_interval, poller.poll)
 
-    webpath = config.get('webroot', 'scrapyd.website.Root')
-    webcls = load_object(webpath)
-    resource = create_wrapped_resource(webcls, config, app)
-    webservice = TCPServer(http_port, server.Site(resource), interface=bind_address)
-    log.msg(format="Scrapyd web console available at http://%(bind_address)s:%(http_port)s/",
-            bind_address=bind_address, http_port=http_port)
+    # webroot uses launcher, poller, scheduler and environment.
+    webroot = initialize_component(config, "webroot", "scrapyd.website.Root", app)
+    resource = server.Site(wrap_resource(webroot, config))
+    if bind_address and http_port:
+        webservice = TCPServer(http_port, resource, interface=bind_address)
+        log.info(
+            "Scrapyd web console available at http://{bind_address}:{http_port}/",
+            bind_address=bind_address,
+            http_port=http_port,
+        )
+    if unix_socket_path:
+        unix_socket_path = os.path.abspath(unix_socket_path)
+        webservice = UNIXServer(unix_socket_path, resource, mode=0o660)
+        log.info(
+            "Scrapyd web console available at http+unix://{unix_socket_path}",
+            unix_socket_path=unix_socket_path,
+        )
 
     launcher.setServiceParent(app)
     timer.setServiceParent(app)
