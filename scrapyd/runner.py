@@ -39,6 +39,9 @@ def project_environment(project):
     eggversion = os.environ.get("SCRAPYD_EGG_VERSION", None)
     sanitized_version, egg = eggstorage.get(project, eggversion)
 
+    # It is 'SCRAPYD_EGG_VERSION' since v1.4.0 https://scrapyd.readthedocs.io/en/stable/news.html#id15
+    if sanitized_version:
+        os.environ.setdefault("SCRAPYD_EGG_VERSION", sanitized_version)
     tmp = None
     # egg can be None if the project is not in egg storage: for example, if Scrapyd is invoked within a Scrapy project.
     if egg:
