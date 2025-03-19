@@ -1,34 +1,35 @@
+# Standard library imports
 import os
 import shutil
 import tempfile
 from contextlib import contextmanager
 
-import importlib.metadata as metadata
+# Third-party imports
+from importlib import metadata
 
+# Local application imports
 from scrapyd import Config
 from scrapyd.exceptions import BadEggError
 from scrapyd.utils import initialize_component
 
 
+def raise_bad_egg_error():
+    err_msg = "No valid distribution found in eggpath"
+    raise BadEggError(err_msg)
+
+
 def activate_egg(eggpath):
-    """Activate a Scrapy egg file. This is meant to be used from egg runners
-    to activate a Scrapy egg file. Don't use it from other code as it may
-    leave unwanted side effects.
-    """
+    """Activate a Scrapy egg file."""
     try:
         distributions = list(metadata.distributions(path=[eggpath]))
         if not distributions:
-            raise BadEggError("No valid distribution found in eggpath")
-
-        distribution = distributions[0]
+            raise_bad_egg_error()
 
         # Ensure SCRAPY_SETTINGS_MODULE is set
         os.environ["SCRAPY_SETTINGS_MODULE"] = "streamingscrapper.settings"
-        #entry_info = [ep for ep in distribution.entry_points if ep.group == "scrapy" and ep.name == "settings"]
-        #if entry_info:
-        #    os.environ.setdefault("SCRAPY_SETTINGS_MODULE", entry_info[0].value)
     except Exception as e:
         raise BadEggError from e
+
 
 @contextmanager
 def project_environment(project):
@@ -61,11 +62,14 @@ def project_environment(project):
         if tmp:
             os.remove(tmp.name)
 
+
 def main():
     project = os.environ["SCRAPY_PROJECT"]
     with project_environment(project):
         from scrapy.cmdline import execute
+
         execute()
+
 
 if __name__ == "__main__":
     main()
