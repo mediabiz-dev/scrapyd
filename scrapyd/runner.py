@@ -3,7 +3,7 @@ import shutil
 import tempfile
 from contextlib import contextmanager
 
-import pkg_resources
+import importlib.metadata as metadata
 
 from scrapyd import Config
 from scrapyd.exceptions import BadEggError
@@ -15,21 +15,20 @@ def activate_egg(eggpath):
     to activate a Scrapy egg file. Don't use it from other code as it may
     leave unwanted side effects.
     """
-    distributions = pkg_resources.find_distributions(eggpath)
-    if isinstance(distributions, tuple):
-        raise BadEggError
-
     try:
-        distribution = next(distributions)
-    except StopIteration:
-        raise BadEggError from None
+        distributions = list(metadata.distributions(path=[eggpath]))
+        if not distributions:
+            raise BadEggError("No valid distribution found in eggpath")
 
-    distribution.activate()
+        distribution = distributions[0]
 
-    # setdefault() was added in https://github.com/scrapy/scrapyd/commit/0641a57. It's not clear why, since the egg
-    # should control its settings module. That said, it is unlikely to already be set.
-    os.environ.setdefault("SCRAPY_SETTINGS_MODULE", distribution.get_entry_info("scrapy", "settings").module_name)
-
+        # Ensure SCRAPY_SETTINGS_MODULE is set
+        os.environ["SCRAPY_SETTINGS_MODULE"] = "streamingscrapper.settings"
+        #entry_info = [ep for ep in distribution.entry_points if ep.group == "scrapy" and ep.name == "settings"]
+        #if entry_info:
+        #    os.environ.setdefault("SCRAPY_SETTINGS_MODULE", entry_info[0].value)
+    except Exception as e:
+        raise BadEggError from e
 
 @contextmanager
 def project_environment(project):
@@ -42,8 +41,8 @@ def project_environment(project):
     # It is 'SCRAPYD_EGG_VERSION' since v1.4.0 https://scrapyd.readthedocs.io/en/stable/news.html#id15
     if sanitized_version:
         os.environ.setdefault("SCRAPYD_EGG_VERSION", sanitized_version)
+
     tmp = None
-    # egg can be None if the project is not in egg storage: for example, if Scrapyd is invoked within a Scrapy project.
     if egg:
         try:
             if hasattr(egg, "name"):  # for example, FileIO
@@ -56,25 +55,17 @@ def project_environment(project):
                 activate_egg(tmp.name)
         finally:
             egg.close()
-
     try:
         yield
     finally:
         if tmp:
             os.remove(tmp.name)
 
-
 def main():
     project = os.environ["SCRAPY_PROJECT"]
     with project_environment(project):
         from scrapy.cmdline import execute
-
-        # This calls scrapy.utils.project.get_project_settings(). It uses SCRAPY_SETTINGS_MODULE if set. Otherwise, it
-        # calls scrapy.utils.conf.init_env(), which reads Scrapy's configuration sources, looks for a project matching
-        # SCRAPY_PROJECT in the [settings] section, and uses its value for SCRAPY_SETTINGS_MODULE.
-        # https://docs.scrapy.org/en/latest/topics/commands.html#configuration-settings
         execute()
-
 
 if __name__ == "__main__":
     main()
