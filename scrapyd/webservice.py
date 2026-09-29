@@ -260,7 +260,19 @@ class AddVersion(WsResource):
         self.root.update_projects()
 
         spiders = spider_list.set(project, version, runner=self.root.runner)
+        if self._is_default_version(project, version):
+            spider_list.cache[project][None] = spiders
         return {"project": project, "version": version, "spiders": len(spiders)}
+
+    def _is_default_version(self, project, version):
+        eggs = [self.root.eggstorage.get(project)[1], self.root.eggstorage.get(project, version)[1]]
+        try:
+            names = [getattr(egg, "name", None) for egg in eggs]
+            return names[0] is not None and names[0] == names[1]
+        finally:
+            for egg in eggs:
+                if egg:
+                    egg.close()
 
 
 class ListProjects(WsResource):
