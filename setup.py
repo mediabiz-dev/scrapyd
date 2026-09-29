@@ -26,7 +26,7 @@ setup(
         "packaging",
         "pywin32;platform_system=='Windows'",
         "scrapy>=2.0.0",
-        "setuptools",
+        "setuptools<82",
         "twisted>=17.9",
         "w3lib",
         "zope.interface",
