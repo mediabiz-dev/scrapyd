@@ -57,8 +57,8 @@ def test_get_settings(environ):
         ),
     ],
 )
-@patch("os.listdir", lambda _: [])
-@patch("os.makedirs", lambda _: _)
+@patch("pathlib.Path.iterdir", lambda _: [])
+@patch("pathlib.Path.mkdir", lambda *args, **kwargs: None)
 def test_get_settings_url(items_dir, pattern):
     config = Config(values={"logs_dir": "", "items_dir": items_dir})
     environ = Environment(config, initenv={})
@@ -78,14 +78,15 @@ def test_get_settings_url(items_dir, pattern):
 def test_get_settings_secure(values, key, value):
     config = Config(values=values)
     environ = Environment(config, initenv={})
+    part = value.replace("/", os.sep)
 
     with pytest.raises(DirectoryTraversalError) as exc:
         environ.get_settings({"_project": "p1", "_spider": "s1", "_job": "j1", key: value})
 
     assert str(exc.value) == (
-        f"{value if key == '_project' else 'p1'}{os.sep}"
-        f"{value if key == '_spider' else 's1'}{os.sep}"
-        f"{value if key == '_job' else 'j1'}.log"
+        f"{part if key == '_project' else 'p1'}{os.sep}"
+        f"{part if key == '_spider' else 's1'}{os.sep}"
+        f"{part if key == '_job' else 'j1'}.log"
     )
 
 

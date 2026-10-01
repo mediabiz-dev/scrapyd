@@ -6,12 +6,12 @@ from scrapyd.sqlite import JsonSqlitePriorityQueue, SqliteFinishedJobs
 from tests import get_finished_job
 
 
-@pytest.fixture()
+@pytest.fixture
 def jsonsqlitepriorityqueue():
     return JsonSqlitePriorityQueue()
 
 
-@pytest.fixture()
+@pytest.fixture
 def sqlitefinishedjobs():
     q = SqliteFinishedJobs(":memory:")
     q.add(get_finished_job("p1", "s1", "j1", end_time=datetime.datetime(2001, 2, 3, 4, 5, 6, 7)))
@@ -126,6 +126,12 @@ def test_sqlitefinishedjobs_add(sqlitefinishedjobs):
 
 def test_sqlitefinishedjobs_clear_all(sqlitefinishedjobs):
     sqlitefinishedjobs.clear()
+
+    assert len(sqlitefinishedjobs) == 0
+
+
+def test_sqlitefinishedjobs_clear_keep_0(sqlitefinishedjobs):
+    sqlitefinishedjobs.clear(finished_to_keep=0)
 
     assert len(sqlitefinishedjobs) == 0
 

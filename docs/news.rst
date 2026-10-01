@@ -3,6 +3,50 @@ Release notes
 
 .. changelog
 
+Unreleased
+----------
+
+Added
+~~~~~
+
+- Add DEBUG-level messages to the :ref:`schedule.json` and :ref:`cancel.json` webservices.
+
+Changed
+~~~~~~~
+
+- Clarify error message when the launcher fails to spawn processes.
+
+Removed
+~~~~~~~
+
+- Drop support for end-of-life Python version 3.9.
+
+1.6.0 (2025-07-22)
+------------------
+
+Added
+~~~~~
+
+- Add a :ref:`jobs_dir` setting, to create a `job directory <https://doc.scrapy.org/en/latest/topics/jobs.html>`__ for each crawl, to persist requests to disk.
+- Add DEBUG-level messages to the launcher.
+- Add :doc:`cli` documentation.
+- Python 3.13 support.
+
+Changed
+~~~~~~~
+
+- The :ref:`cancel.json` webservice accepts an integer for the ``signal`` parameter.
+
+Fixed
+~~~~~
+
+- 1.5.0 incorrectly documented ``finished_to_keep = 0`` as keeping all jobs, instead of keeping no jobs.
+
+Removed
+~~~~~~~
+
+- Drop support for end-of-life Python version 3.8.
+
 1.5.0 (2024-09-05)
 ------------------
 
@@ -14,7 +58,7 @@ Added
 Fixed
 ~~~~~
 
-- Restore the ``--nodaemon`` (``-n``) option (which Scrapyd enables, regardless), to avoid "option --nodaemon not recognized".
+- Restore the ``--nodaemon`` (``-n``) option (which Scrapyd enables, regardless), to avoid ``option --nodaemon not recognized``.
 
 1.5.0b1 (2024-07-25)
 --------------------
@@ -43,7 +87,6 @@ Changed
 ~~~~~~~
 
 - Every :ref:`poll_interval`, up to :ref:`max_proc` processes are started by the default :ref:`poller`, instead of only one process. (The number of running jobs will not exceed :ref:`max_proc`.)
-- Drop support for end-of-life Python version 3.7.
 
 Web UI
 ^^^^^^
@@ -151,6 +194,8 @@ Removed
   - ``SCRAPYD_LOG_FILE``
   - ``SCRAPYD_SLOT``
   - ``SCRAPYD_SPIDER``
+
+- Drop support for end-of-life Python version 3.7.
 
 1.4.3 (2023-09-25)
 ------------------

@@ -2,6 +2,7 @@ import os
 import shutil
 import tempfile
 from contextlib import contextmanager
+from pathlib import Path
 
 import pkg_resources
 
@@ -50,9 +51,8 @@ def project_environment(project):
                 activate_egg(egg.name)
             else:  # for example, BytesIO
                 prefix = f"{project}-{sanitized_version}-"
-                tmp = tempfile.NamedTemporaryFile(suffix=".egg", prefix=prefix, delete=False)
-                shutil.copyfileobj(egg, tmp)
-                tmp.close()
+                with tempfile.NamedTemporaryFile(suffix=".egg", prefix=prefix, delete=False) as tmp:
+                    shutil.copyfileobj(egg, tmp)
                 activate_egg(tmp.name)
         finally:
             egg.close()
@@ -61,13 +61,13 @@ def project_environment(project):
         yield
     finally:
         if tmp:
-            os.remove(tmp.name)
+            Path(tmp.name).unlink()
 
 
 def main():
     project = os.environ["SCRAPY_PROJECT"]
     with project_environment(project):
-        from scrapy.cmdline import execute
+        from scrapy.cmdline import execute  # noqa: PLC0415
 
         # This calls scrapy.utils.project.get_project_settings(). It uses SCRAPY_SETTINGS_MODULE if set. Otherwise, it
         # calls scrapy.utils.conf.init_env(), which reads Scrapy's configuration sources, looks for a project matching

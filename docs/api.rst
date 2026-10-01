@@ -137,6 +137,8 @@ Parameters
   ``project``
     the project name
 
+The job's status is indicated by the ``currstate`` key whose value is one of ``'pending'``, ``'running'`` or ``'finished'`` – or ``None`` if the job is not found.
+
 Example:
 
 .. code-block:: shell-session
@@ -162,7 +164,14 @@ Parameters
   ``job`` (required)
     the job ID
   ``signal``
-    the `signal <https://docs.python.org/3/library/signal.html#module-contents>`__ to send to the Scrapy process (``BREAK`` by default on Windows and ``INT`` by default, otherwise)
+    the `signal <https://docs.python.org/3/library/signal.html#module-contents>`__ to send to the Scrapy process (``BREAK`` by default on Windows and ``INT`` by default, otherwise), one of:
+
+    -  an integer
+    -  `HUP <https://docs.python.org/3/library/signal.html#signal.SIGHUP>`__
+    -  `INT <https://docs.python.org/3/library/signal.html#signal.SIGINT>`__
+    -  `KILL <https://docs.python.org/3/library/signal.html#signal.SIGKILL>`__
+    -  STOP
+    -  `TERM <https://docs.python.org/3/library/signal.html#signal.SIGTERM>`__
 
 Example:
 
