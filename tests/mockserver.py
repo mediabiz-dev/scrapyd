@@ -1,6 +1,7 @@
 import re
 import socket
 import sys
+import time
 from pathlib import Path
 from subprocess import PIPE, Popen
 from urllib.parse import urljoin
@@ -41,6 +42,17 @@ class MockScrapydServer:
             if address := re.search("available at (.+/)", line.decode()):
                 self.url = address.group(1)
                 break
+
+        # The URL is logged before the port is listened on, after the launcher fills max_proc slots (4 per CPU).
+        deadline = time.monotonic() + 10
+        while True:
+            try:
+                socket.create_connection(("127.0.0.1", int(self.http_port)), timeout=1).close()
+                break
+            except ConnectionRefusedError:
+                if time.monotonic() > deadline:
+                    raise
+                time.sleep(0.05)
 
         return self
 
