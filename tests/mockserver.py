@@ -49,7 +49,7 @@ class MockScrapydServer:
             try:
                 socket.create_connection(("127.0.0.1", int(self.http_port)), timeout=1).close()
                 break
-            except ConnectionRefusedError:
+            except OSError:  # ConnectionRefusedError, or TimeoutError on macOS
                 if time.monotonic() > deadline:
                     raise
                 time.sleep(0.05)
