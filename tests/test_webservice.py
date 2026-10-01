@@ -509,17 +509,17 @@ def test_add_version(txrequest, root):
 
 
 def test_add_version_caches_default_version(txrequest, root):
-    args = {b"project": [b"quotesbot"], b"version": [b"0.2"], b"egg": [get_egg_data("quotesbot")]}
+    args = {b"project": [b"quotesbot"], b"version": [b"0.2"], b"egg": [get_egg_data("mybot")]}
     expected = {"project": "quotesbot", "version": "0.2", "spiders": 2}
     assert_content(txrequest, root, "POST", "addversion", args, expected)
-    assert spider_list.cache["quotesbot"][None] == ["toscrape-css", "toscrape-xpath"]
+    assert spider_list.cache["quotesbot"][None] == ["spider1", "spider2"]
 
     args = {b"project": [b"quotesbot"], b"version": [b"0.1"], b"egg": [get_egg_data("mybot2")]}
     expected = {"project": "quotesbot", "version": "0.1", "spiders": 3}
     assert_content(txrequest, root, "POST", "addversion", args, expected)
     assert None not in spider_list.cache["quotesbot"]
 
-    expected = {"spiders": ["toscrape-css", "toscrape-xpath"]}
+    expected = {"spiders": ["spider1", "spider2"]}
     assert_content(txrequest, root, "GET", "listspiders", {b"project": [b"quotesbot"]}, expected)
 
 
