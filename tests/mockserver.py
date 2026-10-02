@@ -1,11 +1,12 @@
-import os.path
 import re
 import socket
 import sys
+import time
+from pathlib import Path
 from subprocess import PIPE, Popen
 from urllib.parse import urljoin
 
-BASEDIR = os.path.abspath(os.path.dirname(__file__))
+BASEDIR = Path(__file__).parent.resolve()
 
 
 def get_ephemeral_port():
@@ -24,7 +25,7 @@ class MockScrapydServer:
 
     def __enter__(self):
         self.http_port = get_ephemeral_port()
-        command = [sys.executable, os.path.join(BASEDIR, "mockapp.py"), self.http_port]
+        command = [sys.executable, str(BASEDIR / "mockapp.py"), self.http_port]
         if self.username and self.password:
             command.extend([f"--username={self.username}", f"--password={self.password}"])
 
@@ -41,6 +42,17 @@ class MockScrapydServer:
             if address := re.search("available at (.+/)", line.decode()):
                 self.url = address.group(1)
                 break
+
+        # The URL is logged before the port is listened on, after the launcher fills max_proc slots (4 per CPU).
+        deadline = time.monotonic() + 10
+        while True:
+            try:
+                socket.create_connection(("127.0.0.1", int(self.http_port)), timeout=1).close()
+                break
+            except OSError:  # ConnectionRefusedError, or TimeoutError on macOS
+                if time.monotonic() > deadline:
+                    raise
+                time.sleep(0.05)
 
         return self
 

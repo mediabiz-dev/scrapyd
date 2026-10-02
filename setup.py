@@ -1,12 +1,15 @@
-import os.path
+import re
+from pathlib import Path
 
 from setuptools import setup
 
-with open("README.rst") as f:
-    long_description = f.read()
+BASEDIR = Path(__file__).parent
 
-with open(os.path.join(os.path.dirname(__file__), "scrapyd", "VERSION")) as f:
-    version = f.read().strip()
+long_description = (BASEDIR / "README.rst").read_text()
+
+version = re.search(
+    r'^__version__ = "([^"]+)"', (BASEDIR / "scrapyd" / "__init__.py").read_text(), re.MULTILINE
+).group(1)
 
 setup(
     name="scrapyd",
@@ -26,17 +29,16 @@ setup(
         "packaging",
         "pywin32;platform_system=='Windows'",
         "scrapy>=2.0.0",
-        "setuptools",
+        "setuptools>=67.7.0,<82",
         "twisted>=17.9",
         "w3lib",
         "zope.interface",
     ],
     extras_require={
         "test": [
-            "coveralls",
+            "coverage",
             "py-html-checker",
             "pytest",
-            "pytest-cov",
             "pytest-twisted",
             "requests",
             "twisted>=19.7",  # twisted.logger.capturedLogs
@@ -53,11 +55,11 @@ setup(
         "Operating System :: OS Independent",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: Implementation :: CPython",
         "Development Status :: 5 - Production/Stable",
         "Environment :: Console",
         "Environment :: No Input/Output (Daemon)",

@@ -15,9 +15,9 @@ expected = spider_args.copy()
 expected["name"] = "spider1"
 
 
-@pytest.fixture()
+@pytest.fixture
 def spiderqueue():
-    return SqliteSpiderQueue(Config(values={"dbs_dir": ":memory:"}), "quotesbot")
+    return SqliteSpiderQueue(Config(values={"dbs_dir": ":memory:"}), "mybot")
 
 
 def test_interface(spiderqueue):

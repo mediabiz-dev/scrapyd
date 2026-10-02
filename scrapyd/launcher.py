@@ -8,6 +8,7 @@ from twisted.internet import defer, error, protocol, reactor
 from twisted.logger import Logger
 
 from scrapyd import __version__
+from scrapyd.exceptions import LauncherError
 from scrapyd.interfaces import IEnvironment, IJobStorage, IPoller
 
 log = Logger()
@@ -38,8 +39,6 @@ class Launcher(Service):
         self.app = app
 
     def startService(self):
-        for slot in range(self.max_proc):
-            self._get_message(slot)
         log.info(
             "Scrapyd {version} started: max_proc={max_proc!r}, runner={runner!r}",
             version=__version__,
@@ -47,10 +46,13 @@ class Launcher(Service):
             runner=self.runner,
             log_system="Launcher",
         )
+        for slot in range(self.max_proc):
+            self._get_message(slot)
 
     def _get_message(self, slot):
         poller = self.app.getComponent(IPoller)
         poller.next().addCallback(self._spawn_process, slot)
+        log.debug("Process slot {slot} ready", slot=slot)
 
     def _spawn_process(self, message, slot):
         project = message["_project"]
@@ -64,13 +66,20 @@ class Launcher(Service):
         process = ScrapyProcessProtocol(project, message["_spider"], message["_job"], env, args)
         process.deferred.addBoth(self._process_finished, slot)
 
-        reactor.spawnProcess(process, sys.executable, args=args, env=env)
+        try:
+            reactor.spawnProcess(process, sys.executable, args=args, env=env)
+        except OSError as e:
+            raise LauncherError(f"{e}: args={args!r}") from e
+
         self.processes[slot] = process
+        log.debug("Process slot {slot} occupied", slot=slot)
 
     def _process_finished(self, _, slot):
         process = self.processes.pop(slot)
         process.end_time = datetime.datetime.now()
         self.finished.add(process)
+        log.debug("Process slot {slot} vacated", slot=slot)
+
         self._get_message(slot)
 
     def _get_max_proc(self, config):
@@ -86,7 +95,7 @@ class Launcher(Service):
 
 
 # https://docs.twisted.org/en/stable/api/twisted.internet.protocol.ProcessProtocol.html
-class ScrapyProcessProtocol(protocol.ProcessProtocol):
+class ScrapyProcessProtocol(protocol.ProcessProtocol):  # noqa: PLW1641 missing __hash__ method
     def __init__(self, project, spider, job, env, args):
         self.project = project
         self.spider = spider
@@ -111,7 +120,7 @@ class ScrapyProcessProtocol(protocol.ProcessProtocol):
             and self.env == other.env
         )
 
-    # For error messsages in tests.
+    # For error messages in tests.
     def __repr__(self):
         return (
             f"ScrapyProcessProtocol(project={self.project} spider={self.spider} job={self.job} pid={self.pid} "

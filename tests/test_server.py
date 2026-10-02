@@ -9,7 +9,7 @@ from tests import get_egg_data
 from tests.mockserver import MockScrapydServer
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_scrapyd(chdir):
     with MockScrapydServer() as server:
         yield server
@@ -91,10 +91,10 @@ def test_options(mock_scrapyd, method, basename):
 def test_other_reactors(mock_scrapyd):
     response = requests.post(
         mock_scrapyd.urljoin("addversion.json"),
-        data={b"project": b"quotesbot", b"version": b"0.01"},
-        # The egg's quotesbot/settings.py file sets TWISTED_REACTOR to
-        # "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
-        files={b"egg": io.BytesIO(get_egg_data("quotesbot_asyncio"))},
+        data={b"project": b"mybot", b"version": b"0.01"},
+        # Identical to mybot.egg, except mybot/settings.py sets
+        # `TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"`.
+        files={b"egg": io.BytesIO(get_egg_data("settings_asyncioreactor"))},
     )
 
     assert response.status_code == 200

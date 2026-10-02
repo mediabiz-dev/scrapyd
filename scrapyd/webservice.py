@@ -219,6 +219,14 @@ class Schedule(WsResource):
             _job=jobid,
             **args,
         )
+
+        log.debug(
+            "Job scheduled: project={project!r} spider={spider!r} job={job!r}",
+            project=project,
+            spider=spider,
+            job=jobid,
+        )
+
         return {"jobid": jobid}
 
 
@@ -228,7 +236,11 @@ class Cancel(WsResource):
     # Instead of os.name, use sys.platform, which disambiguates Cygwin, which implements SIGINT not SIGBREAK.
     # https://cygwin.com/cygwin-ug-net/kill.html
     # https://github.com/scrapy/scrapy/blob/06f9c28/tests/test_crawler.py#L886
-    @param("signal", required=False, default="INT" if sys.platform != "win32" else "BREAK")
+    #
+    # Use the number 21 for SIGBREAK, because Twisted doesn't recognize "BREAK".
+    # https://docs.twistedmatrix.com/en/stable/api/twisted.internet.process._BaseProcess.html#signalProcess
+    # https://github.com/twisted/twisted/blob/b3a4d85/src/twisted/internet/process.py#L340
+    @param("signal", required=False, default="INT" if sys.platform != "win32" else "21")
     def render_POST(self, txrequest, project, job, signal):
         if project not in self.root.poller.queues:
             raise error.Error(code=http.OK, message=b"project '%b' not found" % project.encode())
@@ -238,10 +250,20 @@ class Cancel(WsResource):
         if self.root.poller.queues[project].remove(lambda message: message["_job"] == job):
             prevstate = "pending"
 
+        if signal.isdigit():
+            signal = int(signal)
+
         for process in self.root.launcher.processes.values():
             if process.project == project and process.job == job:
                 process.transport.signalProcess(signal)
                 prevstate = "running"
+
+        log.debug(
+            "Job canceled: project={project!r} job={job!r} prevstate={prevstate!r}",
+            project=project,
+            job=job,
+            prevstate=prevstate,
+        )
 
         return {"prevstate": prevstate}
 
@@ -260,7 +282,19 @@ class AddVersion(WsResource):
         self.root.update_projects()
 
         spiders = spider_list.set(project, version, runner=self.root.runner)
+        if self._is_default_version(project, version):
+            spider_list.cache[project][None] = spiders
         return {"project": project, "version": version, "spiders": len(spiders)}
+
+    def _is_default_version(self, project, version):
+        eggs = [self.root.eggstorage.get(project)[1], self.root.eggstorage.get(project, version)[1]]
+        try:
+            names = [getattr(egg, "name", None) for egg in eggs]
+            return names[0] is not None and names[0] == names[1]
+        finally:
+            for egg in eggs:
+                if egg:
+                    egg.close()
 
 
 class ListProjects(WsResource):
